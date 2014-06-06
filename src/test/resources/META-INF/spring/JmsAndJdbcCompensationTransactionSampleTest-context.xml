@@ -5,7 +5,7 @@
         http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
     ">
 
-    <import resource="broker.xml" />
+<!--     <import resource="broker.xml" /> -->
     
     <!-- TX configuration -->
     
@@ -29,21 +29,16 @@
 
     <!-- JMS configuration -->
 
-    <bean id="pooledJmsConnectionFactory" class="org.apache.activemq.pool.PooledConnectionFactory" init-method="start" destroy-method="stop">
+    <bean id="pooledJmsConnectionFactory" class="org.fusesource.jms.pool.PooledConnectionFactory" init-method="start" destroy-method="stop">
         <property name="maxConnections" value="8" />
         <property name="connectionFactory" ref="jmsConnectionFactory" />
     </bean>
     
-    <bean id="jmsConnectionFactory" class="org.apache.activemq.ActiveMQConnectionFactory" depends-on="broker">
-        <property name="brokerURL" value="tcp://localhost:61616"/>
-        <property name="redeliveryPolicy">
-            <bean class="org.apache.activemq.RedeliveryPolicy">
-                <property name="maximumRedeliveries" value="0"/>
-            </bean>
-        </property>
+    <bean id="jmsConnectionFactory" class="com.tibco.tibjms.TibjmsConnectionFactory">
+        <property name="serverUrl" value="tcp://localhost:7222"/>
     </bean>
 
-    <bean id="activemqTx" class="org.apache.activemq.camel.component.ActiveMQComponent">
+    <bean id="tibjmsTx" class="org.apache.camel.component.jms.JmsComponent">
         <property name="connectionFactory" ref="pooledJmsConnectionFactory"/>
         <property name="transacted" value="true"/>
         <property name="transactionManager" ref="jmsTransactionManager"/>
@@ -51,7 +46,7 @@
     
     <!-- JMS configuration for test enqueue/dequeue without transactions -->
     
-    <bean id="activemq" class="org.apache.activemq.camel.component.ActiveMQComponent">
+    <bean id="tibjms" class="org.apache.activemq.camel.component.ActiveMQComponent">
         <property name="connectionFactory" ref="pooledJmsConnectionFactory"/>
         <property name="transacted" value="false"/>
     </bean>

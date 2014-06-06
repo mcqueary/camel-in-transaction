@@ -74,9 +74,11 @@ public abstract class BaseJmsAndJdbcXATransactionSampleTest extends CamelSpringT
         assertEquals(1000, queryForLong("SELECT balance from account where name = 'foo'"));
         assertEquals(1000, queryForLong("SELECT balance from account where name = 'bar'"));
         
-        template.sendBody("activemq:queue:transaction.incoming.one", new Long(100));
+        template.sendBodyAndHeader("tibjms:queue:transaction.incoming.one" 
+        		+ "?timeToLive=5000", new Long(100),
+        		"JMS_TIBCO_PRESERVE_UNDELIVERED", true);
         
-        Exchange exchange = consumer.receive("activemq:queue:transaction.outgoing.one", 5000);
+        Exchange exchange = consumer.receive("tibjms:queue:transaction.outgoing.one", 500000);
         assertNotNull(exchange);
         
         assertEquals(900, queryForLong("SELECT balance from account where name = 'foo'"));
@@ -84,13 +86,15 @@ public abstract class BaseJmsAndJdbcXATransactionSampleTest extends CamelSpringT
     }
     
     @Test
-    public void moneyShouldNotTransfered() {
+    public void moneyShouldNotBeTransferred() {
         assertEquals(1000, queryForLong("SELECT balance from account where name = 'foo'"));
         assertEquals(1000, queryForLong("SELECT balance from account where name = 'bar'"));
         
-        template.sendBody("activemq:queue:transaction.incoming.two", new Long(100));
+        template.sendBodyAndHeader("tibjms:queue:transaction.incoming.two"
+        		+"?timeToLive=5000", new Long(100),
+        		"JMS_TIBCO_PRESERVE_UNDELIVERED", true);
         
-        Exchange exchange = consumer.receive("activemq:queue:ActiveMQ.DLQ", 5000);
+        Exchange exchange = consumer.receive("tibjms:queue:$sys.undelivered", 500000);
         assertNotNull(exchange);
         
         assertEquals(1000, queryForLong("SELECT balance from account where name = 'foo'"));
@@ -98,13 +102,15 @@ public abstract class BaseJmsAndJdbcXATransactionSampleTest extends CamelSpringT
     }
     
     @Test
-    public void moneyShouldNotTransfered2() throws Exception {
+    public void moneyShouldNotBeTransferred2() throws Exception {
         assertEquals(1000, queryForLong("SELECT balance from account where name = 'foo'"));
         assertEquals(1000, queryForLong("SELECT balance from account where name = 'bar'"));
         
-        template.sendBody("activemq:queue:transaction.incoming.three", new Long(100));
+        template.sendBodyAndHeader("tibjms:queue:transaction.incoming.three"
+        		+"?timeToLive=3000", new Long(100),
+        		"JMS_TIBCO_PRESERVE_UNDELIVERED", true);
         
-        Exchange exchange = consumer.receive("activemq:queue:ActiveMQ.DLQ", 5000);
+        Exchange exchange = consumer.receive("tibjms:queue:$sys.undelivered", 5000);
         assertNotNull(exchange);
         
         assertEquals(1000, queryForLong("SELECT balance from account where name = 'foo'"));
@@ -119,14 +125,14 @@ public abstract class BaseJmsAndJdbcXATransactionSampleTest extends CamelSpringT
         // warm up
         latch = new CountDownLatch(100);
         for (int i = 0; i < 100; i++) {
-            template.sendBody("activemq:queue:transaction.incoming.four", new Long(0));
+            template.sendBody("tibjms:queue:transaction.incoming.four", new Long(0));
         }
         latch.await();
         
         latch = new CountDownLatch(1000);
         long start = System.currentTimeMillis();
         for (int i = 0; i < 1000; i++) {
-            template.sendBody("activemq:queue:transaction.incoming.four", new Long(1));
+            template.sendBody("tibjms:queue:transaction.incoming.four", new Long(1));
         }
         latch.await();
         long end = System.currentTimeMillis();
@@ -142,31 +148,31 @@ public abstract class BaseJmsAndJdbcXATransactionSampleTest extends CamelSpringT
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from("activemqXa:queue:transaction.incoming.one")
+                from("tibjmsXa:queue:transaction.incoming.one")
                     .transacted("PROPAGATION_REQUIRED")
                     .to("sql:UPDATE account SET balance = (SELECT balance from account where name = 'foo') - # WHERE name = 'foo'?dataSourceRef=dataSource")
                     .to("sql:UPDATE account SET balance = (SELECT balance from account where name = 'bar') + # WHERE name = 'bar'?dataSourceRef=dataSource")
-                    .to("activemqXa:queue:transaction.outgoing.one");
+                    .to("tibjmsXa:queue:transaction.outgoing.one");
                 
-                from("activemqXa:queue:transaction.incoming.two")
+                from("tibjmsXa:queue:transaction.incoming.two")
                     .transacted("PROPAGATION_REQUIRED")
                     .to("sql:UPDATE account SET balance = (SELECT balance from account where name = 'foo') - # WHERE name = 'foo'?dataSourceRef=dataSource")
                     .throwException(new SQLException("forced exception for test"))
                     .to("sql:UPDATE account SET balance = (SELECT balance from account where name = 'bar') + # WHERE name = 'bar'?dataSourceRef=dataSource")
-                    .to("activemqXa:queue:transaction.outgoing.two");
+                    .to("tibjmsXa:queue:transaction.outgoing.two");
                 
-                from("activemqXa:queue:transaction.incoming.three")
+                from("tibjmsXa:queue:transaction.incoming.three")
                     .transacted("PROPAGATION_REQUIRED")
                     .to("sql:UPDATE account SET balance = (SELECT balance from account where name = 'foo') - # WHERE name = 'foo'?dataSourceRef=dataSource")
                     .to("sql:UPDATE account SET balance = (SELECT balance from account where name = 'bar') + # WHERE name = 'bar'?dataSourceRef=dataSource")
                     .throwException(new SQLException("forced exception for test"))
-                    .to("activemqXa:queue:transaction.outgoing.three");
+                    .to("tibjmsXa:queue:transaction.outgoing.three");
                 
-                from("activemqXa:queue:transaction.incoming.four")
+                from("tibjmsXa:queue:transaction.incoming.four")
 	                .transacted("PROPAGATION_REQUIRED")
 	                .to("sql:UPDATE account SET balance = (SELECT balance from account where name = 'foo') - # WHERE name = 'foo'?dataSourceRef=dataSource")
 	                .to("sql:UPDATE account SET balance = (SELECT balance from account where name = 'bar') + # WHERE name = 'bar'?dataSourceRef=dataSource")
-	                .to("activemqXa:queue:transaction.outgoing.four")
+	                .to("tibjmsXa:queue:transaction.outgoing.four")
 	                .process(new Processor() {
 						@Override
 						public void process(Exchange exchange) throws Exception {

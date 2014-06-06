@@ -1,7 +1,7 @@
+.??*
+*.class
+/bin
 /target
-/.settings
-.classpath
-.project
 *.log
 *.tlog
 *.out

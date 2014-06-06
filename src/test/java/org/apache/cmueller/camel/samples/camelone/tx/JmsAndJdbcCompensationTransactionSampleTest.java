@@ -72,9 +72,9 @@ public class JmsAndJdbcCompensationTransactionSampleTest extends CamelSpringTest
 		assertEquals(1000, queryForLong("SELECT balance from account where name = 'foo'"));
 		assertEquals(1000, queryForLong("SELECT balance from account where name = 'bar'"));
 
-		template.sendBody("activemq:queue:transaction.incoming.one", 100L);
+		template.sendBodyAndHeader("tibjms:queue:transaction.incoming.one?timeToLive=3000", 100L, "JMS_TIBCO_PRESERVE_UNDELIVERED", true);
 
-		Exchange exchange = consumer.receive("activemq:queue:transaction.outgoing.one", 5000);
+		Exchange exchange = consumer.receive("tibjms:queue:transaction.outgoing.one", 5000);
 		assertNotNull(exchange);
 
 		assertEquals(900, queryForLong("SELECT balance from account where name = 'foo'"));
@@ -86,9 +86,9 @@ public class JmsAndJdbcCompensationTransactionSampleTest extends CamelSpringTest
 		assertEquals(1000, queryForLong("SELECT balance from account where name = 'foo'"));
 		assertEquals(1000, queryForLong("SELECT balance from account where name = 'bar'"));
 
-		template.sendBody("activemq:queue:transaction.incoming.two", 100L);
+		template.sendBodyAndHeader("tibjms:queue:transaction.incoming.two?timeToLive=3000", 100L, "JMS_TIBCO_PRESERVE_UNDELIVERED", true);
 
-		Exchange exchange = consumer.receive("activemq:queue:ActiveMQ.DLQ", 5000);
+		Exchange exchange = consumer.receive("tibjms:queue:$sys.undelivered", 5000);
 		assertNotNull(exchange);
 
 		assertEquals(1000, queryForLong("SELECT balance from account where name = 'foo'"));
@@ -100,9 +100,9 @@ public class JmsAndJdbcCompensationTransactionSampleTest extends CamelSpringTest
 		assertEquals(1000, queryForLong("SELECT balance from account where name = 'foo'"));
 		assertEquals(1000, queryForLong("SELECT balance from account where name = 'bar'"));
 
-		template.sendBody("activemq:queue:transaction.incoming.three", 100L);
+		template.sendBodyAndHeader("tibjms:queue:transaction.incoming.three?timeToLive=3000", 100L, "JMS_TIBCO_PRESERVE_UNDELIVERED", true);
 
-		Exchange exchange = consumer.receive("activemq:queue:ActiveMQ.DLQ", 5000);
+		Exchange exchange = consumer.receive("tibjms:queue:$sys.undelivered", 5000);
 		assertNotNull(exchange);
 
 		assertEquals(1000, queryForLong("SELECT balance from account where name = 'foo'"));
@@ -116,28 +116,28 @@ public class JmsAndJdbcCompensationTransactionSampleTest extends CamelSpringTest
             public void configure() throws Exception {
             	context.setTracing(true);
             	
-                from("activemqTx:queue:transaction.incoming.one")
+                from("tibjmsTx:queue:transaction.incoming.one")
                     .transacted("PROPAGATION_REQUIRED_JMS")
                     .transacted("PROPAGATION_REQUIRED_JDBC")
                     .to("sql:UPDATE account SET balance = (SELECT balance from account where name = 'foo') - # WHERE name = 'foo'?dataSourceRef=dataSource")
                     .to("sql:UPDATE account SET balance = (SELECT balance from account where name = 'bar') + # WHERE name = 'bar'?dataSourceRef=dataSource")
-                    .to("activemqTx:queue:transaction.outgoing.one");
+                    .to("tibjmsTx:queue:transaction.outgoing.one");
                 
-                from("activemqTx:queue:transaction.incoming.two")
+                from("tibjmsTx:queue:transaction.incoming.two")
                     .transacted("PROPAGATION_REQUIRED_JMS")
                     .transacted("PROPAGATION_REQUIRED_JDBC")
                     .to("sql:UPDATE account SET balance = (SELECT balance from account where name = 'foo') - # WHERE name = 'foo'?dataSourceRef=dataSource")
                     .throwException(new SQLException("forced exception for test"))
                     .to("sql:UPDATE account SET balance = (SELECT balance from account where name = 'bar') + # WHERE name = 'bar'?dataSourceRef=dataSource")
-                    .to("activemqTx:queue:transaction.outgoing.two");
+                    .to("tibjmsTx:queue:transaction.outgoing.two");
                 
-                from("activemqTx:queue:transaction.incoming.three")
+                from("tibjmsTx:queue:transaction.incoming.three")
                     .transacted("PROPAGATION_REQUIRED_JMS")
                     .transacted("PROPAGATION_REQUIRED_JDBC")
                     .to("sql:UPDATE account SET balance = (SELECT balance from account where name = 'foo') - # WHERE name = 'foo'?dataSourceRef=dataSource")
                     .to("sql:UPDATE account SET balance = (SELECT balance from account where name = 'bar') + # WHERE name = 'bar'?dataSourceRef=dataSource")
                     .throwException(new SQLException("forced exception for test"))
-                    .to("activemqTx:queue:transaction.outgoing.three");
+                    .to("tibjmsTx:queue:transaction.outgoing.three");
             }
         };
     }

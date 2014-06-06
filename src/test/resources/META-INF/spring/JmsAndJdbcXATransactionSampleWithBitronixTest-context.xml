@@ -5,7 +5,7 @@
             http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
        ">
 
-    <import resource="broker.xml"/>
+<!--     <import resource="broker.xml"/> -->
     
     <!-- TX configuration -->
     
@@ -27,25 +27,24 @@
     
     <!-- JMS configuration -->
     
-    <bean id="resourceManager" class="org.apache.activemq.pool.ActiveMQResourceManager" init-method="recoverResource">
+    <bean id="resourceManager" class="org.fusesource.jms.pool.GenericResourceManager" init-method="recoverResource">
         <property name="transactionManager" ref="transactionManager" />
         <property name="connectionFactory" ref="pooledJmsXaConnectionFactory" />
-        <property name="resourceName" value="activemq.default" />
+        <property name="resourceName" value="tibjms.default" />
     </bean>
     
-    <bean id="pooledJmsXaConnectionFactory" class="bitronix.tm.resource.jms.PoolingConnectionFactory" init-method="init" destroy-method="close" depends-on="broker">
-        <property name="className" value="org.apache.activemq.ActiveMQXAConnectionFactory" />
+    <bean id="pooledJmsXaConnectionFactory" class="bitronix.tm.resource.jms.PoolingConnectionFactory" init-method="init" destroy-method="close">
+        <property name="className" value="com.tibco.tibjms.TibjmsXAConnectionFactory" />
         <property name="uniqueName" value="activemq" />
         <property name="maxPoolSize" value="8" />
         <property name="driverProperties">
             <props>
-                <prop key="brokerURL">tcp://localhost:61616</prop>
+                <prop key="serverUrl">tcp://localhost:7222</prop>
             </props>
         </property>
     </bean>
 
-    <bean id="activemqXa" class="org.apache.activemq.camel.component.ActiveMQComponent">
-        <!-- because of https://issues.apache.org/jira/browse/AMQ-3251, we cannot use the XaPooledConnectionFactory in AMQ 5.5.1 -->
+    <bean id="tibjmsXa" class="org.apache.camel.component.jms.JmsComponent">
         <property name="connectionFactory" ref="pooledJmsXaConnectionFactory"/>
         <property name="transacted" value="false"/>
         <property name="transactionManager" ref="jtaTransactionManager"/>
@@ -53,11 +52,11 @@
     
     <!-- JMS configuration for test enqueue/dequeue without transactions -->
 
-    <bean id="jmsConnectionFactory" class="org.apache.activemq.ActiveMQConnectionFactory" depends-on="broker">
-        <property name="brokerURL" value="tcp://localhost:61616"/>
+    <bean id="jmsConnectionFactory" class="com.tibco.tibjms.TibjmsConnectionFactory">
+        <property name="serverUrl" value="tcp://localhost:7222"/>
     </bean>
     
-    <bean id="activemq" class="org.apache.activemq.camel.component.ActiveMQComponent">
+    <bean id="tibjms" class="org.apache.camel.component.jms.JmsComponent">
         <property name="connectionFactory" ref="jmsConnectionFactory"/>
         <property name="transacted" value="false"/>
     </bean>
